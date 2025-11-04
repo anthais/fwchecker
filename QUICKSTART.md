@@ -20,8 +20,8 @@ fwchecker --config=bcs-firewall.conf
 ## Hoặc chạy trực tiếp (không cài đặt)
 
 ```bash
-chmod +x fwchecker.py
-./fwchecker.py --config=bcs-firewall.conf
+chmod +x fwchecker
+./fwchecker --config=bcs-firewall.conf
 ```
 
 ## Format config đơn giản
@@ -54,10 +54,10 @@ local,192.168.1.10,8080,telnet,admin,password123
 
 ```bash
 # Test với config mẫu (external hosts only)
-./fwchecker.py --config=bcs-firewall.conf
+./fwchecker --config=bcs-firewall.conf
 
 # Xem help
-./fwchecker.py --help
+./fwchecker --help
 ```
 
 ## Kết quả mẫu

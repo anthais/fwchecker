@@ -1,0 +1,65 @@
+# Firewall Checker System Requirements
+# Bash script - không cần Python dependencies
+
+## Hệ điều hành
+- Linux (bất kỳ distro nào)
+- Bash 4.0+ (khuyến nghị, Bash 3.x cũng hoạt động)
+
+## Các công cụ hệ thống (System Tools)
+
+### Bắt buộc:
+- bash         : Shell chính (có sẵn trên hầu hết Linux)
+- ping         : Kiểm tra kết nối (package: iputils-ping)
+- nc/netcat    : TCP connection test (package: netcat-openbsd hoặc netcat-traditional)
+
+### Tùy chọn (cho tính năng local hosts):
+- sshpass      : SSH với password tự động
+- ssh          : SSH client (thường có sẵn)
+
+## Cài đặt
+
+### Ubuntu/Debian:
+```bash
+sudo apt-get update
+sudo apt-get install -y bash iputils-ping netcat-openbsd sshpass coreutils
+```
+
+### RHEL/CentOS:
+```bash
+sudo yum install -y bash iputils nc sshpass coreutils
+```
+
+### Fedora:
+```bash
+sudo dnf install -y bash iputils nc sshpass coreutils
+```
+
+### Alpine Linux:
+```bash
+apk add bash iputils netcat-openbsd sshpass coreutils
+```
+
+### Arch Linux:
+```bash
+pacman -S bash iputils gnu-netcat sshpass coreutils
+```
+
+## Kiểm tra cài đặt
+
+Chạy lệnh sau để kiểm tra các tool đã có chưa:
+
+```bash
+command -v bash && echo "✓ bash"
+command -v ping && echo "✓ ping"
+command -v nc && echo "✓ nc"
+command -v sshpass && echo "✓ sshpass"
+command -v timeout && echo "✓ timeout"
+```
+
+## Ghi chú
+
+- Script sẽ tự động kiểm tra và báo thiếu tools khi chạy
+- Chạy `./setup.sh` để cài đặt tự động các dependencies còn thiếu
+- Không cần pip, npm, hay package manager nào khác
+- Chỉ cần các công cụ Linux native
+

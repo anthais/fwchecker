@@ -13,16 +13,20 @@ Công cụ kiểm tra firewall đơn giản và mạnh mẽ để kiểm tra k�
 
 ## 📋 Yêu cầu hệ thống
 
-### Python
-- Python 3.6 trở lên
+### Bash
+- Bash 4.0+ (khuyến nghị, Bash 3.x cũng có thể hoạt động)
+- Có sẵn trên hầu hết các hệ thống Linux
 
 ### System Tools
 ```bash
 # Ubuntu/Debian
-sudo apt-get install -y sshpass netcat-openbsd
+sudo apt-get install -y sshpass netcat-openbsd iputils-ping
 
 # RHEL/CentOS
-sudo yum install -y sshpass nc
+sudo yum install -y sshpass nc iputils
+
+# Fedora
+sudo dnf install -y sshpass nc iputils
 ```
 
 ## 🚀 Cài đặt
@@ -36,13 +40,8 @@ chmod +x setup.sh
 
 ### Cách 2: Chạy trực tiếp
 ```bash
-chmod +x fwchecker.py
-./fwchecker.py --config=bcs-firewall.conf
-```
-
-### Cách 3: Sử dụng Python
-```bash
-python3 fwchecker.py --config=bcs-firewall.conf
+chmod +x fwchecker
+./fwchecker --config=bcs-firewall.conf
 ```
 
 ## 📝 Cách sử dụng
@@ -167,6 +166,13 @@ sudo apt-get install netcat-openbsd
 - Kiểm tra user có quyền bind port (ports < 1024 cần root)
 - Kiểm tra port đã được sử dụng chưa: `netstat -tuln | grep <port>`
 - Firewall trên remote host có chặn không
+
+## 💡 Tại sao Bash?
+
+- ⚡ **Nhanh**: Không cần khởi động interpreter
+- 📦 **Nhẹ**: Không cần dependencies ngoài
+- 🔧 **Dễ sửa**: Code rõ ràng, dễ customize
+- 🐧 **Native**: Tích hợp hoàn hảo với Linux tools
 
 ## 📄 License
 
