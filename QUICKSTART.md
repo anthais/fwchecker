@@ -36,11 +36,16 @@ type,ip,port,method,ssh_user,ssh_password
 # Ping Google DNS
 external,8.8.8.8,0,ping
 
-# Kiểm tra HTTPS
+# Kiểm tra HTTPS qua telnet
 external,google.com,443,telnet
 
-# Cả ping và telnet
-external,github.com,443,both
+# Kiểm tra HTTPS qua curl
+external,google.com,443,curl
+
+# Kết hợp nhiều loại check
+external,github.com,443,ping+telnet
+external,api.example.com,443,ping+curl
+external,web.example.com,443,ping+telnet+curl
 ```
 
 ### Ví dụ với local host
@@ -48,6 +53,8 @@ external,github.com,443,both
 ```conf
 # Local server với SSH
 local,192.168.1.10,8080,telnet,admin,password123
+local,192.168.1.20,80,curl,webadmin,password456
+local,192.168.1.30,3306,ping+telnet,dbadmin,password789
 ```
 
 ## Test nhanh

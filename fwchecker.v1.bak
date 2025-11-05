@@ -1,0 +1,850 @@
+#!/bin/bash
+#
+# Firewall Checker Tool
+# Check firewall connectivity via ping and telnet
+# Supports both external and local hosts with automatic port opening
+#
+
+set -o pipefail
+
+# Colors
+readonly GREEN='\033[92m'
+readonly RED='\033[91m'
+readonly YELLOW='\033[93m'
+readonly BLUE='\033[94m'
+readonly BOLD='\033[1m'
+readonly NC='\033[0m' # No Color
+
+# Global variables
+CONFIG_FILE=""
+OUTPUT_FORMAT="pretty"  # pretty, csv, tsv, table
+VERBOSE=false
+declare -a HOSTS_TYPE
+declare -a HOSTS_IP
+declare -a HOSTS_PORT
+declare -a HOSTS_METHOD
+declare -a HOSTS_SSH_USER
+declare -a HOSTS_SSH_PASS
+declare -a RESULTS
+declare -a PING_RESULTS
+declare -a TELNET_RESULTS
+declare -a CURL_RESULTS
+declare -a PING_MESSAGES
+declare -a TELNET_MESSAGES
+declare -a CURL_MESSAGES
+
+TOTAL_COUNT=0
+PASS_COUNT=0
+FAIL_COUNT=0
+
+#==============================================================================
+# Functions
+#==============================================================================
+
+print_usage() {
+    cat << EOF
+Firewall Checker Tool - Check firewall connectivity
+
+Usage: $(basename "$0") --config=<config-file> [OPTIONS]
+       $(basename "$0") -c <config-file> [OPTIONS]
+
+Options:
+    -c, --config           Path to config file (required)
+    -f, --format FORMAT    Output format: pretty, csv, tsv, table (default: pretty)
+    -v, --verbose          Enable verbose mode (show detailed debug information)
+    -h, --help             Show this help message
+
+Output formats:
+    pretty    Colorful output with symbols (default)
+    csv       Comma-separated values for Excel
+    tsv       Tab-separated values for Excel
+    table     Plain text table format
+
+File config format:
+    type,ip,port,method,ssh_user,ssh_password
+    
+    type: external | local
+    method: ping | telnet | curl | ping+telnet | ping+curl | telnet+curl | ping+telnet+curl
+    
+Examples:
+    external,8.8.8.8,0,ping
+    external,google.com,443,telnet
+    external,google.com,443,curl
+    external,github.com,443,ping+telnet+curl
+    local,192.168.1.10,8080,telnet,root,password123
+
+Usage examples:
+    $(basename "$0") --config=bcs-firewall.conf
+    $(basename "$0") -c bcs-firewall.conf --format=csv
+    $(basename "$0") -c bcs-firewall.conf -f table > report.txt
+    $(basename "$0") -c bcs-firewall.conf -v  # verbose mode
+EOF
+}
+
+parse_args() {
+    if [[ $# -eq 0 ]]; then
+        print_usage
+        exit 1
+    fi
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --config=*)
+                CONFIG_FILE="${1#*=}"
+                shift
+                ;;
+            -f|--format)
+                OUTPUT_FORMAT="$2"
+                shift 2
+                ;;
+            --format=*)
+                OUTPUT_FORMAT="${1#*=}"
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -h|--help)
+                print_usage
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                print_usage
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ -z "$CONFIG_FILE" ]]; then
+        echo -e "${RED}Error: --config is required${NC}" >&2
+        print_usage
+        exit 1
+    fi
+    
+    # Validate output format
+    if [[ ! "$OUTPUT_FORMAT" =~ ^(pretty|csv|tsv|table)$ ]]; then
+        echo -e "${RED}Error: Invalid format '$OUTPUT_FORMAT'. Use: pretty, csv, tsv, or table${NC}" >&2
+        exit 1
+    fi
+}
+
+log_verbose() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[DEBUG]${NC} $*" >&2
+    fi
+}
+
+log_verbose_section() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[DEBUG] --- $* ---${NC}" >&2
+    fi
+}
+
+parse_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo -e "${RED}Error: Config file not found: $CONFIG_FILE${NC}" >&2
+        return 1
+    fi
+
+    log_verbose "Reading config file: $CONFIG_FILE"
+    
+    local line_num=0
+    local host_count=0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        ((line_num++))
+        
+        # Skip comments and empty lines
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        
+        # Remove leading/trailing whitespace
+        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # Parse CSV (handle spaces around commas)
+        IFS=',' read -ra PARTS <<< "$line"
+        
+        # Trim whitespace from each part
+        for i in "${!PARTS[@]}"; do
+            PARTS[$i]=$(echo "${PARTS[$i]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        done
+        
+        if [[ ${#PARTS[@]} -lt 4 ]]; then
+            echo -e "${YELLOW}Warning: Skipping line $line_num - invalid format${NC}" >&2
+            continue
+        fi
+        
+        local type="${PARTS[0]}"
+        local ip="${PARTS[1]}"
+        local port="${PARTS[2]}"
+        local method="${PARTS[3]}"
+        local ssh_user="${PARTS[4]:-}"
+        local ssh_pass="${PARTS[5]:-}"
+        
+        # Validate
+        if [[ ! "$type" =~ ^(external|local)$ ]]; then
+            echo -e "${YELLOW}Warning: Line $line_num - invalid type: $type${NC}" >&2
+            continue
+        fi
+        
+        # Validate method - support plus-separated values (ping+telnet+curl)
+        local valid_method=true
+        IFS='+' read -ra METHOD_PARTS <<< "$method"
+        for m in "${METHOD_PARTS[@]}"; do
+            m=$(echo "$m" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [[ ! "$m" =~ ^(ping|telnet|curl)$ ]]; then
+                echo -e "${YELLOW}Warning: Line $line_num - invalid method: $m (must be ping, telnet, or curl)${NC}" >&2
+                valid_method=false
+                break
+            fi
+        done
+        
+        if [[ "$valid_method" == "false" ]]; then
+            continue
+        fi
+        
+        if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+            echo -e "${YELLOW}Warning: Line $line_num - invalid port: $port${NC}" >&2
+            continue
+        fi
+        
+        if [[ "$type" == "local" && ( -z "$ssh_user" || -z "$ssh_pass" ) ]]; then
+            echo -e "${YELLOW}Warning: Line $line_num - local type requires ssh_user and ssh_password${NC}" >&2
+            continue
+        fi
+        
+        # Add to arrays
+        HOSTS_TYPE+=("$type")
+        HOSTS_IP+=("$ip")
+        HOSTS_PORT+=("$port")
+        HOSTS_METHOD+=("$method")
+        HOSTS_SSH_USER+=("$ssh_user")
+        HOSTS_SSH_PASS+=("$ssh_pass")
+        
+        log_verbose "Added host: $type $ip:$port method=$method"
+        
+        ((host_count++))
+    done < "$CONFIG_FILE"
+    
+    if [[ $host_count -eq 0 ]]; then
+        echo -e "${RED}Error: No hosts loaded from config${NC}" >&2
+        return 1
+    fi
+    
+    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+        echo -e "${GREEN}✓ Loaded $host_count host(s) from config${NC}\n"
+    fi
+    return 0
+}
+
+check_ping() {
+    local ip="$1"
+    
+    log_verbose "Pinging $ip (3 packets, 2s timeout)..."
+    
+    local start_time=$(date +%s.%N)
+    local output
+    output=$(ping -c 3 -W 2 "$ip" 2>&1)
+    local result=$?
+    local end_time=$(date +%s.%N)
+    local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")
+    
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[DEBUG]${NC} Ping output:" >&2
+        echo "$output" | head -5 | sed 's/^/  /' >&2
+        log_verbose "Ping took ${duration}s, exit code: $result"
+    fi
+    
+    if [[ $result -eq 0 ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+check_telnet() {
+    local ip="$1"
+    local port="$2"
+    local timeout=2
+    
+    log_verbose "Checking telnet connection to $ip:$port (timeout: ${timeout}s)..."
+    
+    local start_time=$(date +%s.%N)
+    
+    # Use nc or timeout+bash to check TCP connection
+    if command -v nc &>/dev/null; then
+        log_verbose "Using netcat (nc) for connection test"
+        local output
+        output=$(nc -z -v -w "$timeout" "$ip" "$port" 2>&1)
+        local result=$?
+        local end_time=$(date +%s.%N)
+        local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")
+        
+        if [[ "$VERBOSE" == "true" ]]; then
+            echo -e "${BLUE}[DEBUG]${NC} Netcat output:" >&2
+            echo "$output" | sed 's/^/  /' >&2
+            log_verbose "Connection test took ${duration}s, exit code: $result"
+        fi
+        
+        if [[ $result -eq 0 ]]; then
+            echo "Connection successful"
+            return 0
+        else
+            # Parse error message
+            if echo "$output" | grep -q "Connection refused"; then
+                echo "Connection refused"
+            elif echo "$output" | grep -q "timed out"; then
+                echo "Connection timeout"
+            elif echo "$output" | grep -q "No route to host"; then
+                echo "No route to host"
+            elif echo "$output" | grep -q "Name or service not known"; then
+                echo "Cannot resolve hostname"
+            else
+                echo "Connection failed"
+            fi
+            return 1
+        fi
+    else
+        # Fallback: use /dev/tcp
+        log_verbose "Using /dev/tcp for connection test (nc not available)"
+        local error_msg
+        error_msg=$(timeout "$timeout" bash -c "exec 3<>/dev/tcp/$ip/$port && exec 3>&-" 2>&1)
+        local result=$?
+        local end_time=$(date +%s.%N)
+        local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")
+        
+        log_verbose "Connection test took ${duration}s, exit code: $result"
+        
+        if [[ $result -eq 0 ]]; then
+            echo "Connection successful"
+            return 0
+        elif [[ $result -eq 124 ]]; then
+            echo "Connection timeout"
+            return 1
+        else
+            echo "Connection failed"
+            return 1
+        fi
+    fi
+}
+
+check_curl() {
+    local ip="$1"
+    local port="$2"
+    local timeout=5
+    
+    # Build URL based on port
+    local protocol="http"
+    if [[ "$port" == "443" ]]; then
+        protocol="https"
+    fi
+    
+    local url="${protocol}://${ip}"
+    if [[ "$port" != "80" && "$port" != "443" ]]; then
+        url="${url}:${port}"
+    fi
+    
+    log_verbose "Checking HTTP(S) connection to $url (timeout: ${timeout}s)..."
+    
+    local start_time=$(date +%s.%N)
+    
+    if ! command -v curl &>/dev/null; then
+        log_verbose "curl command not found"
+        echo "curl not installed"
+        return 1
+    fi
+    
+    local output
+    local http_code
+    output=$(curl -s -o /dev/null -w "%{http_code}" \
+        --connect-timeout "$timeout" \
+        --max-time "$((timeout + 2))" \
+        -L \
+        --insecure \
+        "$url" 2>&1)
+    local result=$?
+    http_code="$output"
+    
+    local end_time=$(date +%s.%N)
+    local duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "0")
+    
+    if [[ "$VERBOSE" == "true" ]]; then
+        log_verbose "HTTP code: $http_code, exit code: $result"
+        log_verbose "Curl took ${duration}s"
+    fi
+    
+    # Check result
+    if [[ $result -eq 0 ]]; then
+        # HTTP codes 2xx and 3xx are success
+        if [[ "$http_code" =~ ^[23][0-9][0-9]$ ]]; then
+            echo "HTTP $http_code - Success"
+            return 0
+        # 4xx and 5xx are technically reachable but not working properly
+        elif [[ "$http_code" =~ ^[45][0-9][0-9]$ ]]; then
+            echo "HTTP $http_code - Reachable but error"
+            return 0  # Still consider as reachable from firewall perspective
+        else
+            echo "HTTP $http_code - Unknown"
+            return 1
+        fi
+    else
+        # Parse curl error
+        case $result in
+            6)  echo "Cannot resolve host" ;;
+            7)  echo "Connection refused" ;;
+            28) echo "Connection timeout" ;;
+            *)  echo "Connection failed (curl error $result)" ;;
+        esac
+        return 1
+    fi
+}
+
+ssh_open_port() {
+    local ip="$1"
+    local port="$2"
+    local ssh_user="$3"
+    local ssh_pass="$4"
+    
+    log_verbose "Attempting to open port $port on $ip via SSH..."
+    
+    # Check if port is already open
+    if check_telnet "$ip" "$port" >/dev/null 2>&1; then
+        log_verbose "Port $port is already open, no need to SSH"
+        echo "Port already open"
+        return 0
+    fi
+    
+    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+        echo "  → Port $port not open, SSHing to $ip to open port..."
+    fi
+    
+    log_verbose "Port $port is closed, need to open it via SSH"
+    
+    # Check if sshpass is available
+    if ! command -v sshpass &>/dev/null; then
+        log_verbose "sshpass command not found"
+        echo "sshpass not installed"
+        return 1
+    fi
+    
+    log_verbose "Connecting via SSH as $ssh_user@$ip..."
+    log_verbose "Command: nohup nc -l -p $port >/dev/null 2>&1 &"
+    
+    # SSH and run nc
+    local ssh_output
+    ssh_output=$(sshpass -p "$ssh_pass" ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o ConnectTimeout=5 \
+        -o LogLevel=ERROR \
+        "$ssh_user@$ip" \
+        "nohup nc -l -p $port >/dev/null 2>&1 &" 2>&1)
+    local ssh_result=$?
+    
+    if [[ "$VERBOSE" == "true" && -n "$ssh_output" ]]; then
+        echo -e "${BLUE}[DEBUG]${NC} SSH output:" >&2
+        echo "$ssh_output" | sed 's/^/  /' >&2
+    fi
+    
+    log_verbose "SSH command exit code: $ssh_result"
+    
+    if [[ $ssh_result -eq 0 ]]; then
+        # Wait for nc to start
+        log_verbose "Waiting 2 seconds for nc to start..."
+        sleep 2
+        
+        log_verbose "nc listener started successfully"
+        echo "Started nc listener"
+        return 0
+    else
+        log_verbose "SSH command failed with exit code $ssh_result"
+        echo "SSH failed"
+        return 1
+    fi
+}
+
+check_host() {
+    local idx="$1"
+    local type="${HOSTS_TYPE[$idx]}"
+    local ip="${HOSTS_IP[$idx]}"
+    local port="${HOSTS_PORT[$idx]}"
+    local method="${HOSTS_METHOD[$idx]}"
+    local ssh_user="${HOSTS_SSH_USER[$idx]}"
+    local ssh_pass="${HOSTS_SSH_PASS[$idx]}"
+    
+    # Add separator in verbose mode
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[DEBUG] ───────────────────────────────────────────────────────────${NC}" >&2
+        log_verbose "Checking host #$((idx+1)): $ip:$port ($type, method=$method)"
+        echo -e "${BLUE}[DEBUG] ───────────────────────────────────────────────────────────${NC}" >&2
+    fi
+    
+    # Only show progress in pretty mode
+    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+        echo -e "${BOLD}Checking $ip:$port ($type)${NC}"
+    fi
+    
+    local ping_ok=1
+    local telnet_ok=1
+    local has_ping=0
+    local has_telnet=0
+    
+    # Parse methods from plus-separated list (ping+telnet+curl)
+    IFS='+' read -ra METHODS <<< "$method"
+    local has_telnet_method=0
+    local has_curl_method=0
+    
+    # Check if we need to open port for local type
+    for m in "${METHODS[@]}"; do
+        m=$(echo "$m" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [[ "$m" == "telnet" ]]; then
+            has_telnet_method=1
+        elif [[ "$m" == "curl" ]]; then
+            has_curl_method=1
+        fi
+    done
+    
+    # If local type and needs telnet/curl, try to open port first
+    if [[ "$type" == "local" && ( $has_telnet_method -eq 1 || $has_curl_method -eq 1 ) && "$port" -gt 0 ]]; then
+        log_verbose_section "SSH PORT OPENING"
+        local ssh_msg
+        ssh_msg=$(ssh_open_port "$ip" "$port" "$ssh_user" "$ssh_pass" 2>&1)
+        local ssh_result=$?
+        if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+            if [[ $ssh_result -eq 0 ]]; then
+                echo -e "  ${GREEN}✓ SSH/NC: $ssh_msg${NC}"
+            else
+                echo -e "  ${YELLOW}⚠ SSH/NC: $ssh_msg${NC}"
+            fi
+        fi
+        if [[ $ssh_result -eq 0 ]]; then
+            log_verbose "Result: ✓ Success"
+        else
+            log_verbose "Result: ✗ Failed"
+        fi
+    fi
+    
+    # Initialize result variables
+    local ping_ok=1
+    local telnet_ok=1
+    local curl_ok=1
+    local has_ping=0
+    local has_telnet=0
+    local has_curl=0
+    
+    # Perform checks based on methods
+    for m in "${METHODS[@]}"; do
+        m=$(echo "$m" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        case "$m" in
+            ping)
+                log_verbose_section "PING CHECK"
+                has_ping=1
+                if check_ping "$ip"; then
+                    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+                        echo -e "  ${GREEN}✓ PING: OK${NC}"
+                    fi
+                    ping_ok=0
+                    PING_RESULTS[$idx]="OK"
+                    PING_MESSAGES[$idx]="Ping successful"
+                    log_verbose "Result: ✓ PASS"
+                else
+                    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+                        echo -e "  ${RED}✗ PING: Cannot ping${NC}"
+                    fi
+                    ping_ok=1
+                    PING_RESULTS[$idx]="FAIL"
+                    PING_MESSAGES[$idx]="Cannot ping host"
+                    log_verbose "Result: ✗ FAIL"
+                fi
+                ;;
+                
+            telnet)
+                if [[ "$port" -gt 0 ]]; then
+                    log_verbose_section "TELNET CHECK"
+                    has_telnet=1
+                    local telnet_msg
+                    telnet_msg=$(check_telnet "$ip" "$port")
+                    local telnet_result=$?
+                    
+                    if [[ $telnet_result -eq 0 ]]; then
+                        if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+                            echo -e "  ${GREEN}✓ TELNET: OK${NC}"
+                        fi
+                        telnet_ok=0
+                        TELNET_RESULTS[$idx]="OK"
+                        TELNET_MESSAGES[$idx]="$telnet_msg"
+                        log_verbose "Result: ✓ PASS"
+                    else
+                        if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+                            echo -e "  ${RED}✗ TELNET: $telnet_msg${NC}"
+                        fi
+                        telnet_ok=1
+                        TELNET_RESULTS[$idx]="FAIL"
+                        TELNET_MESSAGES[$idx]="$telnet_msg"
+                        log_verbose "Result: ✗ FAIL"
+                    fi
+                fi
+                ;;
+                
+            curl)
+                if [[ "$port" -gt 0 ]]; then
+                    log_verbose_section "CURL CHECK"
+                    has_curl=1
+                    local curl_msg
+                    curl_msg=$(check_curl "$ip" "$port")
+                    local curl_result=$?
+                    
+                    if [[ $curl_result -eq 0 ]]; then
+                        if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+                            echo -e "  ${GREEN}✓ CURL: $curl_msg${NC}"
+                        fi
+                        curl_ok=0
+                        CURL_RESULTS[$idx]="OK"
+                        CURL_MESSAGES[$idx]="$curl_msg"
+                        log_verbose "Result: ✓ PASS"
+                    else
+                        if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+                            echo -e "  ${RED}✗ CURL: $curl_msg${NC}"
+                        fi
+                        curl_ok=1
+                        CURL_RESULTS[$idx]="FAIL"
+                        CURL_MESSAGES[$idx]="$curl_msg"
+                        log_verbose "Result: ✗ FAIL"
+                    fi
+                fi
+                ;;
+        esac
+    done
+    
+    # Set default values for unused checks
+    if [[ $has_ping -eq 0 ]]; then
+        PING_RESULTS[$idx]="-"
+        PING_MESSAGES[$idx]="-"
+    fi
+    if [[ $has_telnet -eq 0 ]]; then
+        TELNET_RESULTS[$idx]="-"
+        TELNET_MESSAGES[$idx]="-"
+    fi
+    if [[ $has_curl -eq 0 ]]; then
+        CURL_RESULTS[$idx]="-"
+        CURL_MESSAGES[$idx]="-"
+    fi
+    
+    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+        echo ""
+    fi
+    
+    # Determine pass/fail - only fail if check exists and it failed
+    local result=0
+    if [[ $has_ping -eq 1 && $ping_ok -ne 0 ]]; then
+        result=1
+    fi
+    
+    if [[ $has_telnet -eq 1 && $telnet_ok -ne 0 ]]; then
+        result=1
+    fi
+    
+    if [[ $has_curl -eq 1 && $curl_ok -ne 0 ]]; then
+        result=1
+    fi
+    
+    # Store result (0=pass, 1=fail)
+    RESULTS[$idx]=$result
+    
+    return $result
+}
+
+run_checks() {
+    if [[ "$OUTPUT_FORMAT" == "pretty" ]]; then
+        echo ""
+        echo -e "${BOLD}${BLUE}============================================================${NC}"
+        echo -e "${BOLD}${BLUE}  FIREWALL CHECKER - STARTING CHECKS${NC}"
+        echo -e "${BOLD}${BLUE}============================================================${NC}"
+        echo ""
+    fi
+    
+    local host_count=${#HOSTS_IP[@]}
+    
+    for ((i=0; i<host_count; i++)); do
+        ((TOTAL_COUNT++))
+        if check_host "$i"; then
+            ((PASS_COUNT++))
+        else
+            ((FAIL_COUNT++))
+        fi
+    done
+    
+    print_summary
+}
+
+print_summary() {
+    local host_count=${#HOSTS_IP[@]}
+    
+    case "$OUTPUT_FORMAT" in
+        csv)
+            print_csv
+            ;;
+        tsv)
+            print_tsv
+            ;;
+        table)
+            print_table
+            ;;
+        pretty|*)
+            print_pretty
+            ;;
+    esac
+}
+
+print_csv() {
+    # CSV Header
+    echo "Host,Port,Type,Method,Ping,Ping_Message,Telnet,Telnet_Message,Curl,Curl_Message,Result"
+    
+    # CSV Data
+    local host_count=${#HOSTS_IP[@]}
+    for ((i=0; i<host_count; i++)); do
+        local ip="${HOSTS_IP[$i]}"
+        local port="${HOSTS_PORT[$i]}"
+        local type="${HOSTS_TYPE[$i]}"
+        local method="${HOSTS_METHOD[$i]}"
+        local ping_result="${PING_RESULTS[$i]}"
+        local ping_msg="${PING_MESSAGES[$i]}"
+        local telnet_result="${TELNET_RESULTS[$i]}"
+        local telnet_msg="${TELNET_MESSAGES[$i]}"
+        local curl_result="${CURL_RESULTS[$i]}"
+        local curl_msg="${CURL_MESSAGES[$i]}"
+        local result=${RESULTS[$i]:-1}
+        local status
+        
+        if [[ $result -eq 0 ]]; then
+            status="PASS"
+        else
+            status="FAIL"
+        fi
+        
+        echo "$ip,$port,$type,$method,$ping_result,\"$ping_msg\",$telnet_result,\"$telnet_msg\",$curl_result,\"$curl_msg\",$status"
+    done
+}
+
+print_tsv() {
+    # TSV Header (tab-separated)
+    echo -e "Host\tPort\tType\tMethod\tPing\tPing_Message\tTelnet\tTelnet_Message\tCurl\tCurl_Message\tResult"
+    
+    # TSV Data
+    local host_count=${#HOSTS_IP[@]}
+    for ((i=0; i<host_count; i++)); do
+        local ip="${HOSTS_IP[$i]}"
+        local port="${HOSTS_PORT[$i]}"
+        local type="${HOSTS_TYPE[$i]}"
+        local method="${HOSTS_METHOD[$i]}"
+        local ping_result="${PING_RESULTS[$i]}"
+        local ping_msg="${PING_MESSAGES[$i]}"
+        local telnet_result="${TELNET_RESULTS[$i]}"
+        local telnet_msg="${TELNET_MESSAGES[$i]}"
+        local curl_result="${CURL_RESULTS[$i]}"
+        local curl_msg="${CURL_MESSAGES[$i]}"
+        local result=${RESULTS[$i]:-1}
+        local status
+        
+        if [[ $result -eq 0 ]]; then
+            status="PASS"
+        else
+            status="FAIL"
+        fi
+        
+        echo -e "$ip\t$port\t$type\t$method\t$ping_result\t$ping_msg\t$telnet_result\t$telnet_msg\t$curl_result\t$curl_msg\t$status"
+    done
+}
+
+print_table() {
+    # Table Header
+    printf "%-20s %-6s %-10s %-15s %-6s %-20s %-7s %-20s %-6s %-20s %-8s\n" "Host" "Port" "Type" "Method" "Ping" "Ping_Message" "Telnet" "Telnet_Message" "Curl" "Curl_Message" "Result"
+    printf "%-20s %-6s %-10s %-15s %-6s %-20s %-7s %-20s %-6s %-20s %-8s\n" "--------------------" "------" "----------" "---------------" "------" "--------------------" "-------" "--------------------" "------" "--------------------" "--------"
+    
+    # Table Data
+    local host_count=${#HOSTS_IP[@]}
+    for ((i=0; i<host_count; i++)); do
+        local ip="${HOSTS_IP[$i]}"
+        local port="${HOSTS_PORT[$i]}"
+        local type="${HOSTS_TYPE[$i]}"
+        local method="${HOSTS_METHOD[$i]}"
+        local ping_result="${PING_RESULTS[$i]}"
+        local ping_msg="${PING_MESSAGES[$i]}"
+        local telnet_result="${TELNET_RESULTS[$i]}"
+        local telnet_msg="${TELNET_MESSAGES[$i]}"
+        local curl_result="${CURL_RESULTS[$i]}"
+        local curl_msg="${CURL_MESSAGES[$i]}"
+        local result=${RESULTS[$i]:-1}
+        local status
+        
+        if [[ $result -eq 0 ]]; then
+            status="PASS"
+        else
+            status="FAIL"
+        fi
+        
+        printf "%-20s %-6s %-10s %-15s %-6s %-20s %-7s %-20s %-6s %-20s %-8s\n" "$ip" "$port" "$type" "$method" "$ping_result" "$ping_msg" "$telnet_result" "$telnet_msg" "$curl_result" "$curl_msg" "$status"
+    done
+    
+    # Summary
+    echo ""
+    echo "Total: $TOTAL_COUNT | Passed: $PASS_COUNT | Failed: $FAIL_COUNT"
+}
+
+print_pretty() {
+    echo -e "${BOLD}${BLUE}============================================================${NC}"
+    echo -e "${BOLD}${BLUE}  SUMMARY${NC}"
+    echo -e "${BOLD}${BLUE}============================================================${NC}"
+    echo ""
+    
+    local host_count=${#HOSTS_IP[@]}
+    
+    for ((i=0; i<host_count; i++)); do
+        local ip="${HOSTS_IP[$i]}"
+        local port="${HOSTS_PORT[$i]}"
+        local result=${RESULTS[$i]:-1}
+        
+        if [[ $result -eq 0 ]]; then
+            echo -e "${GREEN}✓ PASS${NC} - $ip:$port"
+        else
+            echo -e "${RED}✗ FAIL${NC} - $ip:$port"
+        fi
+    done
+    
+    echo ""
+    echo -e "${BOLD}Total: $TOTAL_COUNT | Passed: ${GREEN}$PASS_COUNT${NC}${BOLD} | Failed: ${RED}$FAIL_COUNT${NC}"
+    echo -e "${BOLD}${BLUE}============================================================${NC}"
+    echo ""
+}
+
+#==============================================================================
+# Main
+#==============================================================================
+
+main() {
+    parse_args "$@"
+    
+    if ! parse_config; then
+        exit 1
+    fi
+    
+    run_checks
+    
+    # Exit with proper code
+    if [[ $FAIL_COUNT -gt 0 ]]; then
+        exit 1
+    else
+        exit 0
+    fi
+}
+
+# Trap Ctrl+C
+trap 'echo -e "\n${YELLOW}Cancelled by user${NC}"; exit 130' INT
+
+main "$@"

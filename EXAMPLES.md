@@ -17,11 +17,12 @@ Perfect for importing into Excel or Google Sheets.
 
 ### Output:
 ```csv
-Host,Port,Type,Method,Ping,Ping_Message,Telnet,Telnet_Message,Result
-8.8.8.8,0,external,ping,OK,"Ping successful",-,"-",PASS
-google.com,443,external,telnet,-,"-",OK,"Connection successful",PASS
-github.com,443,external,both,OK,"Ping successful",OK,"Connection successful",PASS
-192.168.1.20,3306,external,both,FAIL,"Cannot ping host",FAIL,"Connection timeout",FAIL
+Host,Port,Type,Method,Ping,Ping_Message,Telnet,Telnet_Message,Curl,Curl_Message,Result
+8.8.8.8,0,external,ping,OK,"Ping successful",-,"-",-,"-",PASS
+google.com,443,external,telnet,-,"-",OK,"Connection successful",-,"-",PASS
+google.com,443,external,curl,-,"-",-,"-",OK,"HTTP 200 - Success",PASS
+github.com,443,external,ping+telnet,OK,"Ping successful",OK,"Connection successful",-,"-",PASS
+api.example.com,443,external,ping+curl,OK,"Ping successful",-,"-",OK,"HTTP 200 - Success",PASS
 ```
 
 ### Save to file:
@@ -44,9 +45,10 @@ Tab-separated format, also works well with Excel.
 
 ### Output:
 ```tsv
-Host	Port	Type	Method	Ping	Ping_Message	Telnet	Telnet_Message	Result
-8.8.8.8	0	external	ping	OK	Ping successful	-	-	PASS
-google.com	443	external	telnet	-	-	OK	Connection successful	PASS
+Host	Port	Type	Method	Ping	Ping_Message	Telnet	Telnet_Message	Curl	Curl_Message	Result
+8.8.8.8	0	external	ping	OK	Ping successful	-	-	-	-	PASS
+google.com	443	external	telnet	-	-	OK	Connection successful	-	-	PASS
+google.com	443	external	curl	-	-	-	-	OK	HTTP 200 - Success	PASS
 ```
 
 ---
@@ -62,14 +64,14 @@ Human-readable table format for reports and documentation.
 
 ### Output:
 ```
-Host                      Port   Type       Method   Ping   Ping_Message         Telnet   Telnet_Message            Result  
-------------------------- ------ ---------- -------- ------ -------------------- -------- ------------------------- --------
-8.8.8.8                   0      external   ping     OK     Ping successful      -        -                         PASS    
-google.com                443    external   telnet   -      -                    OK       Connection successful     PASS    
-github.com                443    external   both     OK     Ping successful      OK       Connection successful     PASS    
-192.168.1.20              3306   external   both     FAIL   Cannot ping host     FAIL     Connection timeout        FAIL    
+Host                 Port   Type       Method          Ping   Ping_Message         Telnet  Telnet_Message       Curl   Curl_Message         Result  
+-------------------- ------ ---------- --------------- ------ -------------------- ------- -------------------- ------ -------------------- --------
+8.8.8.8              0      external   ping            OK     Ping successful      -       -                    -      -                    PASS    
+google.com           443    external   telnet          -      -                    OK      Connection success   -      -                    PASS    
+google.com           443    external   curl            -      -                    -       -                    OK     HTTP 200 - Success   PASS    
+github.com           443    external   ping+telnet     OK     Ping successful      OK      Connection success   -      -                    PASS    
 
-Total: 4 | Passed: 3 | Failed: 1
+Total: 4 | Passed: 4 | Failed: 0
 ```
 
 ### Save to file:
@@ -108,9 +110,13 @@ Checking github.com:443 (external)
   ✓ PING: OK
   ✓ TELNET: OK
 
-Checking 192.168.1.20:3306 (external)
-  ✗ PING: Cannot ping
-  ✗ TELNET: Connection timeout
+Checking api.example.com:443 (external)
+  ✓ CURL: HTTP 200 - Success
+
+Checking web.example.com:443 (external)
+  ✓ PING: OK
+  ✓ TELNET: OK
+  ✓ CURL: HTTP 200 - Success
 
 ============================================================
   SUMMARY
@@ -134,11 +140,13 @@ Total: 4 | Passed: 3 | Failed: 1
 | **Host** | IP address or hostname being checked |
 | **Port** | Port number (0 for ping-only checks) |
 | **Type** | `external` or `local` |
-| **Method** | `ping`, `telnet`, or `both` |
+| **Method** | `ping`, `telnet`, `curl`, or combination (e.g., `ping+telnet+curl`) |
 | **Ping** | Ping result: `OK`, `FAIL`, or `-` (not checked) |
 | **Ping_Message** | Detailed ping status message |
 | **Telnet** | Telnet result: `OK`, `FAIL`, or `-` (not checked) |
 | **Telnet_Message** | Detailed telnet status message |
+| **Curl** | Curl result: `OK`, `FAIL`, or `-` (not checked) |
+| **Curl_Message** | Detailed curl status message with HTTP code |
 | **Result** | Overall result: `PASS` or `FAIL` |
 
 ---
@@ -164,6 +172,21 @@ The tool provides detailed telnet connection status:
 |---------|---------|
 | **Ping successful** | Host is reachable via ICMP |
 | **Cannot ping host** | Host is unreachable or blocking ICMP |
+
+---
+
+## Curl Message Types
+
+| Message | Meaning |
+|---------|---------|
+| **HTTP 200 - Success** | HTTP request successful (2xx status) |
+| **HTTP 301 - Success** | Redirect (3xx status, still reachable) |
+| **HTTP 404 - Reachable but error** | Server responded with 4xx error |
+| **HTTP 500 - Reachable but error** | Server responded with 5xx error |
+| **Cannot resolve host** | DNS resolution failed |
+| **Connection refused** | Port is closed or service not running |
+| **Connection timeout** | Firewall blocking or host unreachable |
+| **curl not installed** | curl command not available |
 
 ---
 
