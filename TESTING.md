@@ -31,8 +31,6 @@ brew install libssh2
 ## Build the Project
 
 ```bash
-cd fwchecker-rs
-
 # Debug build (faster compilation, slower execution)
 cargo build
 

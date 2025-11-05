@@ -8,16 +8,16 @@
 
 Check firewall rules and network connectivity from multiple sources to multiple targets using ping, telnet, and HTTP/HTTPS requests.
 
-## ✨ Features
+## ✨ Key Functionality
 
-- 🚀 **Fast & Concurrent** - Parallel execution with async/await
-- 🔒 **Type-Safe** - Strong typing with TOML config validation
-- 🌐 **Multi-Source Checks** - Run checks from local or remote hosts via SSH
-- 🎯 **Flexible Targets** - Check ICMP, TCP ports, and HTTP endpoints
-- 📊 **Multiple Output Formats** - Pretty, CSV, TSV, or table output
-- 🔐 **SSH Support** - Passwordless or password-based SSH authentication
-- 🎨 **Colored Output** - Clear visual feedback with status colors
-- 🛠️ **Auto Port Opening** - Automatically open ports with netcat for testing
+- ✅ **Network Connectivity Checks**: Test connectivity using ICMP ping, TCP port checks (Telnet), and HTTP/HTTPS requests.
+- 🌐 **Source Flexibility**: Run tests from both local and remote (SSH-accessible) hosts.
+- 🎯 **Multi-Target Support**: Check multiple destinations in a single run, including servers, network devices, or services.
+- 🔄 **Parallel Execution**: Perform checks concurrently for fast and efficient results.
+- 📝 **Configurable via TOML**: Define hosts, checks, and targets in a structured, type-safe TOML config file.
+- 📋 **Detailed Output Formats**: Export results as pretty text, CSV, TSV, or ASCII tables for easy reporting and automation.
+- 🔐 **SSH Integration**: Support passwordless (key-based) or password authentication for remote checks.
+- 🛠️ **Test TCP Ports Easily**: Automatically open test ports with netcat on targets if needed.
 
 ## 🚀 Quick Start
 
@@ -26,7 +26,7 @@ Check firewall rules and network connectivity from multiple sources to multiple 
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd fwchecker-rs
+cd fwchecker
 
 # Build release binary
 cargo build --release
@@ -316,7 +316,7 @@ commands = [
 ## 🏗️ Project Structure
 
 ```
-fwchecker-rs/
+fwchecker/
 ├── Cargo.toml          # Dependencies and project metadata
 ├── README.md           # This file
 ├── .gitignore          # Git ignore rules

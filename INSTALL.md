@@ -130,7 +130,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone repository
 git clone https://github.com/anthais/fwchecker.git
-cd fwchecker/fwchecker-rs
+cd fwchecker
 
 # Build and install
 cargo build --release
