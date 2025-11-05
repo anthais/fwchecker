@@ -25,7 +25,7 @@ Check firewall rules and network connectivity from multiple sources to multiple 
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/anthais/fwchecker.git
 cd fwchecker
 
 # Build release binary
