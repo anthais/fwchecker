@@ -1,0 +1,24 @@
+# Simple test config
+
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "dns"
+type = "external"
+ip = "8.8.8.8"
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+[[check]]
+source = "local"
+commands = [
+    "ping dns",
+    "ping google",
+    "telnet google 443",
+]
+

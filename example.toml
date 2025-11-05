@@ -1,0 +1,158 @@
+# ==============================================================================
+# FWChecker Configuration v2.0 - TOML Format
+# ==============================================================================
+
+# Hosts Configuration
+# type: local | remote | external
+#   - local: Run checks directly
+#   - remote: SSH into host and run checks
+#   - external: Target to check (cannot SSH into)
+
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "app1"
+type = "remote"
+ip = "192.168.1.10"
+port = 22
+user = "admin"
+password = "admin123"
+open_service_ports = [80, 443]  # Auto-open these ports with nc
+
+[[host]]
+name = "app2"
+type = "remote"
+ip = "192.168.1.20"
+port = 22
+# No user/password = use SSH key or ~/.ssh/config
+
+[[host]]
+name = "db1"
+type = "remote"
+ip = "192.168.1.30"
+port = 22
+user = "dbadmin"
+# No password = use SSH key
+
+[[host]]
+name = "db2"
+type = "remote"
+ip = "192.168.1.31"
+port = 22
+
+[[host]]
+name = "dns"
+type = "external"
+ip = "8.8.8.8"
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+[[host]]
+name = "api"
+type = "external"
+ip = "api.example.com"
+
+
+# ==============================================================================
+# Check Rules
+# ==============================================================================
+
+# Checks FROM local machine
+[[check]]
+source = "local"
+commands = [
+    "ping app1",
+    "telnet 192.168.1.10 22",
+    "telnet app1 22",
+    "telnet app1 80",      # Will auto-open with nc
+    "telnet app1 443",     # Will auto-open with nc
+    "newline",
+    
+    "ping app2",
+    "telnet app2 22",
+    "telnet app2 80",
+    "telnet app2 443",
+    "newline",
+    
+    "ping db1",
+    "telnet db1 3306",
+    "newline",
+    
+    "ping db2",
+    "telnet db2 3306",
+    "newline",
+]
+
+# Checks FROM app1 server
+[[check]]
+source = "app1"
+commands = [
+    "ping dns",
+    "telnet dns 53",
+    "curl -s https://google.com",
+    "curl -X POST https://api.example.com/login -d '{\"user\":\"admin\"}'",
+    "newline",
+    
+    "ping db1",
+    "telnet db1 3306",
+    "newline",
+    
+    "ping app2",
+    "telnet app2 22",
+    "telnet app2 80",
+    "telnet app2 443",
+    "newline",
+]
+
+# Checks FROM app2 server
+[[check]]
+source = "app2"
+commands = [
+    "ping dns",
+    "telnet dns 53",
+    "curl -s https://google.com",
+    "curl -X POST https://api.example.com/login -d '{\"user\":\"admin\"}'",
+    "newline",
+    
+    "ping db2",
+    "telnet db2 3306",
+    "newline",
+    
+    "ping app1",
+    "telnet app1 22",
+    "telnet app1 80",
+    "telnet app1 443",
+    "newline",
+]
+
+# Checks FROM db1 server
+[[check]]
+source = "db1"
+commands = [
+    "ping dns",
+    "telnet dns 53",
+    "newline",
+    
+    "ping db2",
+    "telnet db2 3306",
+    "newline",
+]
+
+# Checks FROM db2 server
+[[check]]
+source = "db2"
+commands = [
+    "ping dns",
+    "telnet dns 53",
+    "newline",
+    
+    "ping db1",
+    "telnet db1 3306",
+    "newline",
+]
+

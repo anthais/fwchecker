@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build and Release Packages
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssh2-1-dev pkg-config
+      
+      - name: Install cargo tools
+        run: |
+          cargo install cargo-deb cargo-generate-rpm
+      
+      - name: Build release binary
+        run: cargo build --release
+      
+      - name: Build Debian package
+        run: cargo deb
+      
+      - name: Build RPM package
+        run: cargo generate-rpm
+      
+      - name: Create checksums
+        run: |
+          cd target/debian && sha256sum *.deb > fwchecker.deb.sha256
+          cd ../../target/generate-rpm && sha256sum *.rpm > fwchecker.rpm.sha256
+      
+      - name: Get package names
+        id: packages
+        run: |
+          echo "deb=$(ls target/debian/*.deb)" >> $GITHUB_OUTPUT
+          echo "rpm=$(ls target/generate-rpm/*.rpm)" >> $GITHUB_OUTPUT
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ steps.packages.outputs.deb }}
+            ${{ steps.packages.outputs.rpm }}
+            target/debian/fwchecker.deb.sha256
+            target/generate-rpm/fwchecker.rpm.sha256
+          body: |
+            ## FWChecker ${{ steps.packages.outputs.version }}
+            
+            Fast, reliable network connectivity checker written in Rust.
+            
+            ### 📦 Installation
+            
+            **Debian/Ubuntu:**
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker_${{ steps.packages.outputs.version }}-1_amd64.deb
+            sudo apt install ./fwchecker_${{ steps.packages.outputs.version }}-1_amd64.deb
+            ```
+            
+            **CentOS/RHEL/Fedora:**
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker-${{ steps.packages.outputs.version }}-1.x86_64.rpm
+            sudo dnf install ./fwchecker-${{ steps.packages.outputs.version }}-1.x86_64.rpm
+            ```
+            
+            ### ✨ Features
+            - Multi-source checks (local or remote via SSH)
+            - Multiple check types (ping, telnet, curl)
+            - TOML configuration with type-safe parsing
+            - Multiple output formats (pretty, CSV, TSV, table)
+            - Auto port opening for testing
+            
+            ### 📚 Documentation
+            See [README.md](https://github.com/${{ github.repository }}#readme) for full documentation.
+            
+            ### 🔐 Checksums
+            Download the `.sha256` files to verify package integrity.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

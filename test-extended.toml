@@ -1,0 +1,39 @@
+# Extended test config with curl and newline
+
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "dns"
+type = "external"
+ip = "8.8.8.8"
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+[[host]]
+name = "github"
+type = "external"
+ip = "github.com"
+
+[[check]]
+source = "local"
+commands = [
+    "ping dns",
+    "telnet dns 53",
+    "newline",
+    
+    "ping google",
+    "telnet google 443",
+    "curl -s -o /dev/null -w '%{http_code}' https://google.com",
+    "newline",
+    
+    "ping github",
+    "telnet github 443",
+    "curl -s -o /dev/null -w '%{http_code}' https://github.com",
+    "newline",
+]
+

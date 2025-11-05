@@ -1,368 +1,532 @@
-# 🔥 Firewall Checker (fwchecker) v2.0
+# FWChecker
 
-Công cụ kiểm tra firewall mạnh mẽ với khả năng check từ nhiều hosts khác nhau qua SSH.
+A fast, reliable network connectivity checker written in Rust.
 
-## ✨ Tính năng v2.0
+Check firewall rules and network connectivity from multiple sources to multiple targets using ping, telnet, and HTTP/HTTPS requests.
 
-- ✅ **Host-based checking**: Định nghĩa hosts và thực hiện checks từ các hosts đó
-- ✅ **Local execution**: Chạy checks trực tiếp từ máy local
-- ✅ **Remote execution**: SSH vào remote hosts để chạy checks
-- ✅ **Passwordless SSH**: Hỗ trợ SSH key authentication
-- ✅ **Auto port opening**: Tự động mở ports bằng netcat khi cần
-- ✅ **Flexible checks**: ping, telnet, curl với full command support
-- ✅ **Pretty output**: Với newline directives để phân tách groups
-- ✅ **Multiple formats**: pretty, csv, tsv, table
+## ✨ Features
 
-## 📋 Yêu cầu hệ thống
+- 🚀 **Fast & Concurrent** - Parallel execution with async/await
+- 🔒 **Type-Safe** - Strong typing with TOML config validation
+- 🌐 **Multi-Source Checks** - Run checks from local or remote hosts via SSH
+- 🎯 **Flexible Targets** - Check ICMP, TCP ports, and HTTP endpoints
+- 📊 **Multiple Output Formats** - Pretty, CSV, TSV, or table output
+- 🔐 **SSH Support** - Passwordless or password-based SSH authentication
+- 🎨 **Colored Output** - Clear visual feedback with status colors
+- 🛠️ **Auto Port Opening** - Automatically open ports with netcat for testing
 
-### Bash
-- Bash 4.0+ (khuyến nghị, Bash 3.x cũng có thể hoạt động)
-- Có sẵn trên hầu hết các hệ thống Linux
+## 🚀 Quick Start
 
-### System Tools
+### Installation
+
 ```bash
-# Ubuntu/Debian
-sudo apt-get install -y netcat-openbsd iputils-ping curl
+# Clone the repository
+git clone <repo-url>
+cd fwchecker-rs
 
-# Optional: for password-based SSH
-sudo apt-get install -y sshpass
+# Build release binary
+cargo build --release
 
-# RHEL/CentOS
-sudo yum install -y nc iputils curl
-sudo yum install -y sshpass  # optional
-
-# Fedora
-sudo dnf install -y nc iputils curl
-sudo dnf install -y sshpass  # optional
+# Binary is at: target/release/fwchecker
 ```
 
-## 🚀 Cài đặt
+### Basic Usage
 
-### Cách 1: Cài đặt như command-line tool
 ```bash
-cd /workspace/anthais/fwchecker
-chmod +x setup.sh
-./setup.sh
-```
+# Run with default pretty output
+./target/release/fwchecker --config example.toml
 
-### Cách 2: Chạy trực tiếp
-```bash
-chmod +x fwchecker
-./fwchecker --config=example.conf
-```
-
-## 📝 Cách sử dụng
-
-### Cú pháp cơ bản
-```bash
-fwchecker --config=<config-file>
-# hoặc
-fwchecker -c <config-file>
-
-# Với output format khác
-fwchecker -c example.conf --format=csv
+# CSV output
+./target/release/fwchecker -c example.toml --format csv
 
 # Verbose mode
-fwchecker -c example.conf -v
+./target/release/fwchecker -c example.toml -v
+
+# Help
+./target/release/fwchecker --help
 ```
 
-## ⚙️ File cấu hình v2.0
+## 📝 Configuration
 
-### Format
+FWChecker uses TOML configuration files with a simple, type-safe structure:
 
-Config file được chia thành 2 phần chính:
+### Basic Example
 
-#### 1. HOST Definitions - Định nghĩa hosts
+```toml
+# Define hosts
+[[host]]
+name = "local"
+type = "local"
 
-```ini
-[HOST:name]
-type=local|remote|external
-ip=<ip_or_hostname>
-port=<ssh_port>              # default: 22
-user=<ssh_username>          # optional
-password=<ssh_password>      # optional
-openServicePorts=<port1,port2,...>  # optional
+[[host]]
+name = "webserver"
+type = "remote"
+ip = "192.168.1.10"
+port = 22
+user = "admin"
+password = "admin123"
+open_service_ports = [80, 443]  # Auto-open these ports
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+# Define checks
+[[check]]
+source = "local"
+commands = [
+    "ping webserver",
+    "telnet webserver 22",
+    "telnet webserver 80",
+    "curl https://google.com",
+]
+
+[[check]]
+source = "webserver"
+commands = [
+    "ping google",
+    "telnet google 443",
+]
 ```
 
-**Các loại type:**
-- `local`: Chạy lệnh check trực tiếp từ máy local
-- `remote`: SSH vào host này để chạy lệnh check
-- `external`: Target để check (không SSH vào)
+### Host Configuration
 
-**openServicePorts**: Danh sách các ports chưa có service chạy. Tool sẽ tự động SSH vào và mở port bằng `nc -l -p <port>` trước khi check.
+Each host is defined with:
 
-#### 2. CHECK Definitions - Định nghĩa checks
+- **`name`** (required) - Unique identifier for the host
+- **`type`** (required) - One of: `local`, `remote`, `external`
+  - `local` - Run checks on the local machine
+  - `remote` - SSH into this host to run checks
+  - `external` - A target to check (cannot SSH into)
+- **`ip`** (optional) - IP address or hostname
+- **`port`** (optional) - SSH port (default: 22)
+- **`user`** (optional) - SSH username (uses key auth if not provided)
+- **`password`** (optional) - SSH password (uses key auth if not provided)
+- **`open_service_ports`** (optional) - Ports to auto-open with netcat
 
-```ini
-[CHECK:hostname]
-cmd=ping <target>
-cmd=telnet <target> <port>
-cmd=curl <full_curl_command>
-newline
-```
+### Check Configuration
 
-**Commands:**
-- `ping <target>`: Ping đến target
-- `telnet <target> <port>`: Check TCP connection
-- `curl ...`: Full curl command, nhập gì thì chạy đó
-- `newline`: In dòng trống để phân tách groups
+Each check is defined with:
 
-### Ví dụ đầy đủ
+- **`source`** (required) - Name of the host to run checks from
+- **`commands`** (required) - Array of commands to execute:
+  - `ping <target>` - ICMP ping check
+  - `telnet <target> <port>` - TCP port connectivity check
+  - `curl <url> [options]` - HTTP/HTTPS request
+  - `newline` - Visual separator in output
 
-```ini
-# ==============================================================================
-# HOST DEFINITIONS
-# ==============================================================================
+### Complete Example
 
+```toml
 # Local machine
-[HOST:local]
-type=local
+[[host]]
+name = "local"
+type = "local"
 
-# Remote app servers
-[HOST:app1]
-type=remote
-ip=192.168.1.10
-port=22
-user=admin
-password=admin123
-openServicePorts=80,443    # Auto-open these ports
+# Application servers
+[[host]]
+name = "app1"
+type = "remote"
+ip = "192.168.1.10"
+port = 22
+user = "admin"
+password = "secret123"
+open_service_ports = [80, 443]
 
-[HOST:app2]
-type=remote
-ip=192.168.1.20
-# No user/password = use SSH key
+[[host]]
+name = "app2"
+type = "remote"
+ip = "192.168.1.20"
+# No user/password = uses SSH key or ~/.ssh/config
 
-# Database servers
-[HOST:db1]
-type=remote
-ip=192.168.1.30
-user=dbadmin
-# No password = use SSH key
+# Database server
+[[host]]
+name = "db1"
+type = "remote"
+ip = "192.168.1.30"
+user = "dbadmin"
 
 # External targets
-[HOST:dns]
-type=external
-ip=8.8.8.8
+[[host]]
+name = "dns"
+type = "external"
+ip = "8.8.8.8"
 
-[HOST:google]
-type=external
-ip=google.com
+[[host]]
+name = "api"
+type = "external"
+ip = "api.example.com"
 
-[HOST:api]
-type=external
-ip=api.example.com
+# Checks from local machine
+[[check]]
+source = "local"
+commands = [
+    "ping app1",
+    "telnet app1 22",
+    "telnet app1 80",
+    "telnet app1 443",
+    "newline",
+    
+    "ping app2",
+    "telnet app2 22",
+    "newline",
+]
 
+# Checks from app1 server
+[[check]]
+source = "app1"
+commands = [
+    "ping dns",
+    "telnet dns 53",
+    "curl -s https://google.com",
+    "newline",
+    
+    "ping db1",
+    "telnet db1 3306",
+]
 
-# ==============================================================================
-# CHECK RULES
-# ==============================================================================
-
-# Checks FROM local machine
-[CHECK:local]
-# Check app servers
-cmd=ping app1
-cmd=telnet app1 22
-cmd=telnet app1 80     # Will auto-open with nc
-cmd=telnet app1 443    # Will auto-open with nc
-newline
-
-cmd=ping app2
-cmd=telnet app2 22
-newline
-
-# Check databases
-cmd=ping db1
-cmd=telnet db1 3306
-newline
-
-
-# Checks FROM app1 server
-[CHECK:app1]
-# Check external connectivity
-cmd=ping dns
-cmd=telnet dns 53
-cmd=curl -s https://google.com
-cmd=curl -X POST https://api.example.com/v1/data -d '{"test":"data"}' -H "Content-Type: application/json"
-newline
-
-# Check internal connectivity
-cmd=ping db1
-cmd=telnet db1 3306
-newline
-
-cmd=ping app2
-cmd=telnet app2 22
-newline
-
-
-# Checks FROM app2 server
-[CHECK:app2]
-cmd=ping dns
-cmd=curl -s -o /dev/null -w "%{http_code}" https://google.com
-newline
-
-cmd=ping db1
-cmd=telnet db1 3306
-newline
-
-
-# Checks FROM db1 server
-[CHECK:db1]
-cmd=ping dns
-cmd=telnet dns 53
-newline
-
-cmd=ping app1
-cmd=telnet app1 22
-newline
+# Checks from app2 server
+[[check]]
+source = "app2"
+commands = [
+    "ping api",
+    "curl -X POST https://api.example.com/health",
+]
 ```
 
-## 🎯 Cách hoạt động
+## 🎯 Usage Examples
 
-### Flow
+### Check Local Connectivity
 
-1. **Parse config**: Đọc HOST definitions và CHECK rules
-2. **Group by source host**: Nhóm các checks theo source host
-3. **Execute checks**:
-   - Nếu `type=local`: Chạy lệnh trực tiếp
-   - Nếu `type=remote`: SSH vào host và chạy lệnh từ đó
-4. **Auto-open ports**: Nếu target có `openServicePorts`, tự động mở ports trước khi check
-5. **Collect results**: Tổng hợp kết quả theo format
+```toml
+[[host]]
+name = "local"
+type = "local"
 
-### Hostname Resolution
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
 
-- Nếu command dùng hostname (vd: `ping app1`), tool sẽ resolve từ HOST definitions
-- Nếu không tìm thấy, sẽ dùng DNS resolution mặc định
-- Có thể dùng IP trực tiếp (vd: `telnet 192.168.1.10 22`)
+[[check]]
+source = "local"
+commands = [
+    "ping google",
+    "telnet google 443",
+    "curl https://google.com",
+]
+```
 
-### SSH Authentication
+### Check Remote Server Connectivity
 
-Tool hỗ trợ 3 cách:
-1. **Password**: Cung cấp `user=` và `password=` (cần `sshpass`)
-2. **SSH Key**: Chỉ cung cấp `user=`, không có `password=`
-3. **SSH Config**: Không cung cấp `user=` và `password=`, SSH sẽ dùng `~/.ssh/config`
+```toml
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "server"
+type = "remote"
+ip = "192.168.1.100"
+user = "admin"
+password = "pass123"
+
+[[check]]
+source = "local"
+commands = [
+    "ping server",
+    "telnet server 22",
+]
+
+[[check]]
+source = "server"
+commands = [
+    "ping 8.8.8.8",
+    "curl https://google.com",
+]
+```
+
+### Auto-Open Ports for Testing
+
+```toml
+[[host]]
+name = "webserver"
+type = "remote"
+ip = "192.168.1.10"
+user = "admin"
+password = "pass123"
+open_service_ports = [80, 443]  # Opens these ports automatically
+
+[[check]]
+source = "local"
+commands = [
+    "telnet webserver 80",   # Will auto-open port 80 if not listening
+    "telnet webserver 443",  # Will auto-open port 443 if not listening
+]
+```
 
 ## 📊 Output Formats
 
-### Pretty (default)
-```
-✓ Loaded 8 host(s) and 4 check section(s) from config
+### Pretty (Default)
 
-============================================================
-  FIREWALL CHECKER - STARTING CHECKS
-============================================================
-
-Checking from: local (local)
-  ✓ PING local -> app1
-  ✓ TELNET local -> app1:22
-  ✓ TELNET local -> app1:80
-
-  ✓ PING local -> app2
-  ✓ TELNET local -> app2:22
-
-Checking from: app1 (remote)
-  ✓ PING app1 -> dns
-  ✓ CURL app1 -> https://google.com
-
-  ✓ TELNET app1 -> db1:3306
-
-============================================================
-  SUMMARY
-============================================================
-
-✓ PASS - local -> app1 (ping)
-✓ PASS - local -> app1:22 (telnet)
-...
-
-Total: 10 | Passed: 10 | Failed: 0
-```
-
-### CSV Format
 ```bash
-fwchecker -c example.conf -f csv > report.csv
+./target/release/fwchecker -c config.toml
+
+# Colored output with visual separators:
+# ✅ Success in green
+# ❌ Failure in red
+# 📊 Statistics at the end
 ```
 
-Output:
-```csv
-Source,Target,Method,Detail,Result
-local,app1,ping,"-",PASS
-local,app1:22,telnet,"Connection successful",PASS
-app1,dns,ping,"-",PASS
-app1,https://google.com,curl,"Success",PASS
-```
+### CSV
 
-### Table Format
 ```bash
-fwchecker -c example.conf -f table
+./target/release/fwchecker -c config.toml --format csv
+
+# Output:
+# Source,Target,Method,Detail,Status
+# local,google.com,Ping,,Success
+# local,google.com,Telnet,443,Success
 ```
 
-### TSV Format
+### TSV
+
 ```bash
-fwchecker -c example.conf -f tsv
+./target/release/fwchecker -c config.toml --format tsv
+
+# Tab-separated values for easy parsing
 ```
 
-## 🔒 Bảo mật
+### Table
 
-**⚠️ CHÚ Ý**: 
-
-1. File config có thể chứa passwords dạng plaintext
-2. Đặt quyền file: `chmod 600 example.conf`
-3. Không commit file config có password thật vào git
-4. **Khuyến nghị**: Sử dụng SSH key thay vì password trong production
-
-## 🆚 So sánh v1 vs v2
-
-| Feature | v1 | v2 |
-|---------|----|----|
-| Config format | CSV flat file | Structured INI-style |
-| Check source | Local only | Multiple hosts |
-| Remote execution | SSH to open ports only | Full remote execution |
-| Grouping | N/A | By source host |
-| Curl support | Yes | Yes, full command |
-| SSH methods | Password only | Password, Key, Config |
-| Output formatting | Basic | With newline groups |
-
-## 🐛 Troubleshooting
-
-### SSH không hoạt động
 ```bash
-# Check SSH manually
-ssh user@host
+./target/release/fwchecker -c config.toml --format table
 
-# Test passwordless
-ssh -o PasswordAuthentication=no user@host
-
-# Check SSH config
-cat ~/.ssh/config
+# ASCII table format:
+# +--------+-------------+--------+--------+---------+
+# | Source | Target      | Method | Detail | Status  |
+# +--------+-------------+--------+--------+---------+
 ```
 
-### sshpass not found
+## 🏗️ Project Structure
+
+```
+fwchecker-rs/
+├── Cargo.toml          # Dependencies and project metadata
+├── README.md           # This file
+├── .gitignore          # Git ignore rules
+│
+├── Config Files:
+│   ├── example.toml    # Full featured example
+│   ├── test.toml       # Simple test config
+│   └── test-extended.toml  # Extended test config
+│
+└── src/
+    ├── main.rs         # CLI entry point and orchestration
+    ├── config.rs       # TOML config parser with serde
+    ├── checker.rs      # Check execution (ping/telnet/curl)
+    ├── executor.rs     # Command execution (local/SSH)
+    └── output.rs       # Output formatters
+```
+
+## 📚 Dependencies
+
+- **clap** 4.4 - CLI argument parsing with derive macros
+- **toml** 0.8 - TOML configuration parsing
+- **serde** 1.0 - Serialization/deserialization framework
+- **tokio** 1.35 - Async runtime for concurrency
+- **ssh2** 0.9 - SSH client library (libssh2 bindings)
+- **colored** 2.1 - Terminal color output
+- **anyhow** 1.0 - Flexible error handling
+- **reqwest** 0.11 - HTTP client for curl checks
+
+## 🔨 Development
+
 ```bash
-sudo apt-get install sshpass
-# Hoặc dùng SSH key thay thế
+# Check code without building
+cargo check
+
+# Run with arguments
+cargo run -- --config example.toml
+
+# Run tests
+cargo test
+
+# Format code
+cargo fmt
+
+# Lint code
+cargo clippy
+
+# Build optimized release
+cargo build --release
+
+# Install to ~/.cargo/bin
+cargo install --path .
 ```
 
-### Port vẫn không mở sau SSH
-- Check user có quyền bind port (ports < 1024 cần root)
-- Check firewall trên remote host
-- Check nc có được cài đặt: `which nc`
+## 🧪 Testing
 
-## 💡 Tips
+Run the included test configs:
 
-1. **Test SSH trước**: Đảm bảo SSH hoạt động trước khi dùng tool
-2. **Dùng SSH keys**: An toàn hơn passwords
-3. **Setup ~/.ssh/config**: Tiện lợi cho nhiều hosts
-4. **Verbose mode**: Dùng `-v` để debug
-5. **Test từng phần**: Tạo config nhỏ để test trước
+```bash
+# Simple test (3 checks)
+cargo run -- --config test.toml
 
-## 📄 License
+# Extended test (with curl and newline)
+cargo run -- --config test-extended.toml
 
-MIT License
+# Full example
+cargo run -- --config example.toml
+```
 
-## 👤 Author
+## 🚀 Performance
 
-Created for checking firewall connectivity in distributed network infrastructure.
+- **Concurrent Execution**: Multiple checks run in parallel using Tokio
+- **Fast Compilation**: ~1-2 minutes clean build
+- **Small Binary**: ~5MB release binary (can be optimized further)
+- **Low Memory**: Minimal memory footprint
+- **Single Binary**: No runtime dependencies (statically linked)
+
+## 🔧 System Requirements
+
+### Build Requirements
+- Rust 1.70+ (install from [rustup.rs](https://rustup.rs))
+- libssh2 development files (for SSH support)
+  ```bash
+  # Debian/Ubuntu
+  sudo apt install libssh2-1-dev
+  
+  # RHEL/CentOS
+  sudo yum install libssh2-devel
+  
+  # macOS
+  brew install libssh2
+  ```
+
+### Runtime Requirements
+- Linux, macOS, or Windows
+- Network access to target hosts
+- SSH access to remote hosts (if using remote checks)
+- Standard network tools (ping, telnet, curl) on remote hosts
+
+## 📖 CLI Options
+
+```
+Usage: fwchecker [OPTIONS]
+
+Options:
+  -c, --config <FILE>     Configuration file path (required)
+  -f, --format <FORMAT>   Output format: pretty, csv, tsv, table [default: pretty]
+  -v, --verbose           Verbose output (show command details)
+  -h, --help              Print help
+  -V, --version           Print version
+```
+
+## 🎨 Features Deep Dive
+
+### SSH Authentication
+
+FWChecker supports multiple SSH authentication methods:
+
+1. **Password Authentication**
+   ```toml
+   [[host]]
+   name = "server"
+   type = "remote"
+   ip = "192.168.1.10"
+   user = "admin"
+   password = "secret123"
+   ```
+
+2. **SSH Key Authentication**
+   ```toml
+   [[host]]
+   name = "server"
+   type = "remote"
+   ip = "192.168.1.10"
+   user = "admin"
+   # No password = uses SSH key from ~/.ssh/
+   ```
+
+3. **SSH Config**
+   ```toml
+   [[host]]
+   name = "server"
+   type = "remote"
+   ip = "server.example.com"
+   # No user/password = uses ~/.ssh/config
+   ```
+
+### Auto Port Opening
+
+For testing firewall rules without running services:
+
+```toml
+[[host]]
+name = "server"
+type = "remote"
+ip = "192.168.1.10"
+user = "admin"
+password = "pass123"
+open_service_ports = [8080, 8443]  # Auto-open with netcat
+```
+
+When checking these ports, FWChecker will:
+1. SSH into the server
+2. Run `nc -l -p <port>` in the background
+3. Perform the connectivity check
+4. Clean up the netcat process
+
+### Command Types
+
+**Ping**: ICMP connectivity check
+```toml
+commands = ["ping google.com"]
+```
+
+**Telnet**: TCP port connectivity check
+```toml
+commands = [
+    "telnet google.com 443",
+    "telnet 192.168.1.10 22",
+]
+```
+
+**Curl**: HTTP/HTTPS request
+```toml
+commands = [
+    "curl https://google.com",
+    "curl -X POST https://api.example.com/health",
+    "curl -s -o /dev/null -w '%{http_code}' https://example.com",
+]
+```
+
+**Newline**: Visual separator in output
+```toml
+commands = [
+    "ping host1",
+    "telnet host1 80",
+    "newline",
+    "ping host2",
+]
+```
 
 ## 🤝 Contributing
 
-Contributions, issues và feature requests đều được welcome!
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🔗 Links
+
+- Documentation: See this README
+- Issues: GitHub Issues
+- Examples: See `example.toml`, `test.toml`
+
+---
+
+**Built with ❤️ in Rust**

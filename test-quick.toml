@@ -1,0 +1,18 @@
+# Quick test - Just ping Google DNS
+# Fastest test, no SSH needed
+
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "google-dns"
+type = "external"
+ip = "8.8.8.8"
+
+[[check]]
+source = "local"
+commands = [
+    "ping google-dns",
+]
+

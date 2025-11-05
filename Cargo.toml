@@ -1,0 +1,83 @@
+[package]
+name = "fwchecker"
+version = "1.0.0"
+edition = "2021"
+authors = ["FWChecker Contributors"]
+description = "Fast, reliable network connectivity checker with multi-host support"
+license = "MIT"
+keywords = ["firewall", "network", "checker", "connectivity", "monitoring"]
+categories = ["command-line-utilities", "network-programming"]
+
+[dependencies]
+# CLI parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Config parsing
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# SSH support
+ssh2 = "0.9"
+
+# Terminal colors
+colored = "2.1"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# HTTP client for curl
+reqwest = { version = "0.11", features = ["blocking"] }
+
+[[bin]]
+name = "fwchecker"
+path = "src/main.rs"
+
+# Debian package configuration
+[package.metadata.deb]
+maintainer = "FWChecker Contributors <fwchecker@example.com>"
+copyright = "2025, FWChecker Contributors <fwchecker@example.com>"
+extended-description = """\
+FWChecker is a fast, reliable network connectivity checker written in Rust.
+It supports checking firewall rules and network connectivity from multiple
+sources to multiple targets using ping, telnet, and HTTP/HTTPS requests.
+
+Features:
+ - Multi-source checks (local or remote via SSH)
+ - Multiple check types (ping, telnet, curl)
+ - TOML configuration with type-safe parsing
+ - Multiple output formats (pretty, CSV, TSV, table)
+ - Auto port opening for testing
+"""
+section = "net"
+priority = "optional"
+depends = "$auto, openssh-client, iputils-ping, telnet, curl"
+assets = [
+    ["target/release/fwchecker", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/fwchecker/", "644"],
+    ["LICENSE", "usr/share/doc/fwchecker/", "644"],
+    ["example.toml", "usr/share/doc/fwchecker/examples/", "644"],
+    ["test.toml", "usr/share/doc/fwchecker/examples/", "644"],
+]
+
+[package.metadata.deb.systemd-units]
+
+# RPM package configuration
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/fwchecker", dest = "/usr/bin/fwchecker", mode = "755" },
+    { source = "README.md", dest = "/usr/share/doc/fwchecker/README.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/doc/fwchecker/LICENSE", mode = "644", doc = true },
+    { source = "example.toml", dest = "/usr/share/doc/fwchecker/examples/example.toml", mode = "644", doc = true },
+    { source = "test.toml", dest = "/usr/share/doc/fwchecker/examples/test.toml", mode = "644", doc = true },
+]
+
+[package.metadata.generate-rpm.requires]
+openssh-clients = "*"
+iputils = "*"
+telnet = "*"
+curl = "*"
+

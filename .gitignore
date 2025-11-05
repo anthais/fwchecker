@@ -1,32 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
 
-# Config files với password thật
-*-production.conf
-*-prod.conf
-*.secret.conf
+# Cargo.lock (for libraries, keep it for binaries)
+# Cargo.lock
 
 # IDE
 .vscode/
@@ -38,7 +16,4 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
 

@@ -1,0 +1,41 @@
+# Full test - All check types
+# Tests: ping, telnet, curl
+
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "google-dns"
+type = "external"
+ip = "8.8.8.8"
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+[[host]]
+name = "cloudflare-dns"
+type = "external"
+ip = "1.1.1.1"
+
+[[check]]
+source = "local"
+commands = [
+    # Ping tests
+    "ping google-dns",
+    "ping cloudflare-dns",
+    "ping google",
+    "newline",
+    
+    # Telnet tests (TCP port connectivity)
+    "telnet google 443",
+    "telnet google-dns 53",
+    "newline",
+    
+    # HTTP tests
+    "curl -s -o /dev/null -w '%{http_code}' https://google.com",
+    "curl -s -o /dev/null -w '%{http_code}' https://github.com",
+]
+
