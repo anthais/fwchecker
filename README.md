@@ -1,6 +1,10 @@
 # FWChecker
 
-A fast, reliable network connectivity checker written in Rust.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Release](https://img.shields.io/github/v/release/anthais/fwchecker)](https://github.com/anthais/fwchecker/releases)
+
+> 🚀 Fast, reliable network connectivity checker with multi-host SSH support
 
 Check firewall rules and network connectivity from multiple sources to multiple targets using ping, telnet, and HTTP/HTTPS requests.
 

@@ -6,7 +6,7 @@
 
 ```bash
 # Download latest release
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/latest/download/fwchecker_1.0.0-1_amd64.deb
+wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker_1.0.0-1_amd64.deb
 
 # Install
 sudo apt install ./fwchecker_1.0.0-1_amd64.deb
@@ -19,7 +19,7 @@ fwchecker --version
 
 ```bash
 # Download latest release
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/latest/download/fwchecker-1.0.0-1.x86_64.rpm
+wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker-1.0.0-1.x86_64.rpm
 
 # Install
 sudo dnf install ./fwchecker-1.0.0-1.x86_64.rpm
@@ -101,7 +101,7 @@ To update to a new version:
 
 ```bash
 # Download new version
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/latest/download/fwchecker_1.1.0-1_amd64.deb
+wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker_1.1.0-1_amd64.deb
 
 # Upgrade (Debian/Ubuntu)
 sudo apt install ./fwchecker_1.1.0-1_amd64.deb
@@ -129,7 +129,7 @@ If you prefer to build from source:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/fwchecker.git
+git clone https://github.com/anthais/fwchecker.git
 cd fwchecker/fwchecker-rs
 
 # Build and install
@@ -143,7 +143,7 @@ sudo cp target/release/fwchecker /usr/local/bin/
 
 Make sure you're downloading from the correct release page:
 ```
-https://github.com/YOUR_USERNAME/fwchecker/releases
+https://github.com/anthais/fwchecker/releases
 ```
 
 ### Issue: Dependencies not satisfied
@@ -183,8 +183,8 @@ Download and verify checksums:
 
 ```bash
 # Download package and checksum
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/download/v1.0.0/fwchecker_1.0.0-1_amd64.deb
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/download/v1.0.0/fwchecker.deb.sha256
+wget https://github.com/anthais/fwchecker/releases/download/v1.0.0/fwchecker_1.0.0-1_amd64.deb
+wget https://github.com/anthais/fwchecker/releases/download/v1.0.0/fwchecker.deb.sha256
 
 # Verify
 sha256sum -c fwchecker.deb.sha256
@@ -194,7 +194,7 @@ sha256sum -c fwchecker.deb.sha256
 
 - **Documentation**: [README.md](README.md)
 - **Examples**: `/usr/share/doc/fwchecker/examples/`
-- **Issues**: https://github.com/YOUR_USERNAME/fwchecker/issues
+- **Issues**: https://github.com/anthais/fwchecker/issues
 
 ## Next Steps
 

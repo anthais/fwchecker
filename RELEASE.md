@@ -58,13 +58,13 @@ After release, users can install with:
 
 **Debian/Ubuntu:**
 ```bash
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/download/v1.0.0/fwchecker_1.0.0-1_amd64.deb
+wget https://github.com/anthais/fwchecker/releases/download/v1.0.0/fwchecker_1.0.0-1_amd64.deb
 sudo apt install ./fwchecker_1.0.0-1_amd64.deb
 ```
 
 **CentOS/RHEL:**
 ```bash
-wget https://github.com/YOUR_USERNAME/fwchecker/releases/download/v1.0.0/fwchecker-1.0.0-1.x86_64.rpm
+wget https://github.com/anthais/fwchecker/releases/download/v1.0.0/fwchecker-1.0.0-1.x86_64.rpm
 sudo dnf install ./fwchecker-1.0.0-1.x86_64.rpm
 ```
 
