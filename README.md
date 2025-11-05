@@ -19,35 +19,108 @@ Check firewall rules and network connectivity from multiple sources to multiple 
 - 🔐 **SSH Integration**: Support passwordless (key-based) or password authentication for remote checks.
 - 🛠️ **Test TCP Ports Easily**: Automatically open test ports with netcat on targets if needed.
 
-## 🚀 Quick Start
+## 📦 Installation
 
-### Installation
+### Quick Install (Recommended)
+
+Download pre-built packages from [GitHub Releases](https://github.com/anthais/fwchecker/releases):
+
+**Debian/Ubuntu:**
+```bash
+wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker_1.0.0-1_amd64.deb
+sudo apt install ./fwchecker_1.0.0-1_amd64.deb
+```
+
+**CentOS/RHEL/Fedora:**
+```bash
+wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker-1.0.0-1.x86_64.rpm
+sudo dnf install ./fwchecker-1.0.0-1.x86_64.rpm
+```
+
+**Verify Installation:**
+```bash
+fwchecker --help
+which fwchecker
+```
+
+### Build from Source
 
 ```bash
-# Clone the repository
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# Clone repository
 git clone https://github.com/anthais/fwchecker.git
 cd fwchecker
+
+# Install system dependencies
+# Ubuntu/Debian
+sudo apt install libssh2-1-dev pkg-config
 
 # Build release binary
 cargo build --release
 
-# Binary is at: target/release/fwchecker
+# Binary at: target/release/fwchecker
+# Optional: Install to system
+sudo cp target/release/fwchecker /usr/local/bin/
 ```
+
+### Package Contents
+
+When installed via package manager:
+- **Binary**: `/usr/bin/fwchecker`
+- **Documentation**: `/usr/share/doc/fwchecker/`
+- **Examples**: `/usr/share/doc/fwchecker/examples/`
+
+**Dependencies** (auto-installed):
+- `openssh-client/clients` - SSH support
+- `iputils-ping/iputils` - ICMP ping
+- `telnet` - TCP port checks
+- `curl` - HTTP/HTTPS checks
+
+## 🚀 Quick Start
 
 ### Basic Usage
 
 ```bash
 # Run with default pretty output
-./target/release/fwchecker --config example.toml
+fwchecker --config example.toml
 
 # CSV output
-./target/release/fwchecker -c example.toml --format csv
+fwchecker -c example.toml --format csv
 
 # Verbose mode
-./target/release/fwchecker -c example.toml -v
+fwchecker -c example.toml -v
 
 # Help
-./target/release/fwchecker --help
+fwchecker --help
+```
+
+### First Check
+
+```bash
+# Create a simple config
+cat > test.toml << 'EOF'
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+[[check]]
+source = "local"
+commands = [
+    "ping google",
+    "telnet google 443",
+]
+EOF
+
+# Run check
+fwchecker --config test.toml
 ```
 
 ## 📝 Configuration
@@ -372,17 +445,96 @@ cargo install --path .
 
 ## 🧪 Testing
 
-Run the included test configs:
+### Quick Tests
+
+**Test 1: Minimal (Fastest ~1s)**
+```bash
+fwchecker --config test-quick.toml
+# Expected: ✅ local -> google-dns | Ping: Success
+```
+
+**Test 2: Basic (~3s)**
+```bash
+fwchecker --config test.toml
+# Expected: 3 successful checks (ping + telnet)
+```
+
+**Test 3: Extended (~5s)**
+```bash
+fwchecker --config test-extended.toml
+# Expected: 8 checks with curl and newlines
+```
+
+**Test 4: Full (~10s)**
+```bash
+fwchecker --config test-full.toml
+# Expected: All check types
+```
+
+### Test Output Formats
 
 ```bash
-# Simple test (3 checks)
-cargo run -- --config test.toml
+# Pretty (colored, default)
+fwchecker -c test.toml
 
-# Extended test (with curl and newline)
-cargo run -- --config test-extended.toml
+# CSV (for Excel/reporting)
+fwchecker -c test.toml --format csv
 
-# Full example
-cargo run -- --config example.toml
+# TSV (tab-separated)
+fwchecker -c test.toml --format tsv
+
+# ASCII Table
+fwchecker -c test.toml --format table
+
+# Verbose mode (show commands)
+fwchecker -c test.toml -v
+```
+
+### Test SSH Features
+
+Create SSH test config:
+```toml
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "myserver"
+type = "remote"
+ip = "192.168.1.100"
+user = "admin"
+password = "pass123"
+
+[[host]]
+name = "google"
+type = "external"
+ip = "google.com"
+
+[[check]]
+source = "local"
+commands = ["ping myserver", "telnet myserver 22"]
+
+[[check]]
+source = "myserver"
+commands = ["ping google", "curl https://google.com"]
+```
+
+Run: `fwchecker -c my-ssh-test.toml`
+
+### Automated Testing
+
+Use the included test script:
+```bash
+./test-all.sh
+```
+
+Or run tests individually:
+```bash
+# Using debug build
+cargo run -- --config test-quick.toml
+
+# Using release build  
+./target/release/fwchecker --config test.toml
 ```
 
 ## 🚀 Performance
@@ -515,6 +667,81 @@ commands = [
     "newline",
     "ping host2",
 ]
+```
+
+## 🔧 Troubleshooting
+
+### Build Issues
+
+**Error: libssh2 not found**
+```bash
+# Ubuntu/Debian
+sudo apt install libssh2-1-dev pkg-config
+
+# RHEL/CentOS
+sudo yum install libssh2-devel
+
+# macOS
+brew install libssh2
+```
+
+### Runtime Issues
+
+**Permission denied (ping)**
+```bash
+# Set capabilities (recommended)
+sudo setcap cap_net_raw+ep /usr/bin/fwchecker
+
+# Or use system ping (automatic fallback)
+```
+
+**SSH connection failed**
+- Verify IP address and port
+- Test manually: `ssh user@host`
+- Check firewall rules
+- Verify credentials
+
+**Telnet check failed**
+- Check if port is open: `nc -zv host port`
+- Verify firewall rules
+- Check target host status
+
+**Command not found after install**
+```bash
+source ~/.bashrc
+# or
+hash -r
+```
+
+### Verify Package Integrity
+
+```bash
+# Download package and checksum
+wget https://github.com/anthais/fwchecker/releases/download/v1.0.0/fwchecker_1.0.0-1_amd64.deb
+wget https://github.com/anthais/fwchecker/releases/download/v1.0.0/fwchecker.deb.sha256
+
+# Verify
+sha256sum -c fwchecker.deb.sha256
+```
+
+## 🔄 Update & Uninstall
+
+### Update to New Version
+
+```bash
+# Download new version
+wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker_1.1.0-1_amd64.deb
+
+# Upgrade
+sudo apt install ./fwchecker_1.1.0-1_amd64.deb  # Debian/Ubuntu
+sudo dnf upgrade ./fwchecker-1.1.0-1.x86_64.rpm  # CentOS/RHEL
+```
+
+### Uninstall
+
+```bash
+sudo apt remove fwchecker          # Debian/Ubuntu
+sudo dnf remove fwchecker          # CentOS/RHEL
 ```
 
 ## 🤝 Contributing
