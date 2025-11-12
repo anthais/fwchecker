@@ -27,7 +27,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssh2-1-dev pkg-config
+          sudo apt-get install -y libssh2-1-dev pkg-config mingw-w64 zip
       
       - name: Install cargo tools
         run: |
@@ -35,6 +35,12 @@ jobs:
       
       - name: Build release binary
         run: cargo build --release
+
+      - name: Add Windows target
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: Build Windows binary
+        run: cargo build --release --target x86_64-pc-windows-gnu
       
       - name: Build Debian package
         run: cargo deb
@@ -53,6 +59,15 @@ jobs:
           echo "deb=$(ls target/debian/*.deb)" >> $GITHUB_OUTPUT
           echo "rpm=$(ls target/generate-rpm/*.rpm)" >> $GITHUB_OUTPUT
           echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Package Windows binary
+        run: |
+          version=${{ steps.packages.outputs.version }}
+          mkdir -p dist/windows
+          cp target/x86_64-pc-windows-gnu/release/fwchecker.exe dist/windows/
+          cd dist/windows
+          zip "fwchecker-${version}-windows.zip" fwchecker.exe
+          sha256sum "fwchecker-${version}-windows.zip" > "fwchecker-${version}-windows.zip.sha256"
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -62,6 +77,8 @@ jobs:
             ${{ steps.packages.outputs.rpm }}
             target/debian/fwchecker.deb.sha256
             target/generate-rpm/fwchecker.rpm.sha256
+            dist/windows/fwchecker-${{ steps.packages.outputs.version }}-windows.zip
+            dist/windows/fwchecker-${{ steps.packages.outputs.version }}-windows.zip.sha256
           body: |
             ## FWChecker ${{ steps.packages.outputs.version }}
             

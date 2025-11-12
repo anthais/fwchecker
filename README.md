@@ -43,21 +43,32 @@ With **fwchecker**, you can declare all firewall rules in a single configuration
 
 ### Quick Install (Recommended)
 
-Download pre-built packages from [GitHub Releases](https://github.com/anthais/fwchecker/releases):
+Download pre-built packages from [GitHub Releases](https://github.com/anthais/fwchecker/releases). Replace `${VERSION}` with the release number you want to install (for example, `1.2.0` for tag `v1.2.0`).
 
 **Debian/Ubuntu:**
 ```bash
-wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker_1.0.0-1_amd64.deb
-sudo apt install ./fwchecker_1.0.0-1_amd64.deb
+VERSION=1.2.0
+wget https://github.com/anthais/fwchecker/releases/download/v${VERSION}/fwchecker_${VERSION}-1_amd64.deb
+sudo apt install ./fwchecker_${VERSION}-1_amd64.deb
 ```
 
 **CentOS/RHEL/Fedora:**
 ```bash
-wget https://github.com/anthais/fwchecker/releases/latest/download/fwchecker-1.0.0-1.x86_64.rpm
-sudo dnf install ./fwchecker-1.0.0-1.x86_64.rpm
+VERSION=1.2.0
+wget https://github.com/anthais/fwchecker/releases/download/v${VERSION}/fwchecker-${VERSION}-1.x86_64.rpm
+sudo dnf install ./fwchecker-${VERSION}-1.x86_64.rpm
 ```
 
-**Verify Installation:**
+**Windows (PowerShell):**
+```powershell
+$Version = "1.2.0"
+$Tag = "v$Version"
+Invoke-WebRequest -Uri "https://github.com/anthais/fwchecker/releases/download/$Tag/fwchecker-$Version-windows.zip" -OutFile "fwchecker-$Version-windows.zip"
+Expand-Archive -Path "fwchecker-$Version-windows.zip" -DestinationPath "."
+.\fwchecker.exe --help
+```
+
+**Verify Installation (Linux/macOS):**
 ```bash
 fwchecker --help
 which fwchecker
