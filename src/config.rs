@@ -83,6 +83,12 @@ pub struct Check {
 struct TomlConfig {
     host: Vec<Host>,
     check: Vec<Check>,
+    #[serde(default = "default_max_concurrent")]
+    max_concurrent: usize,
+}
+
+fn default_max_concurrent() -> usize {
+    1
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +101,7 @@ pub struct CheckCommand {
 pub struct Config {
     pub hosts: HashMap<String, Host>,
     pub checks: Vec<(String, Vec<CheckCommand>)>, // (source_host, commands)
+    pub max_concurrent: usize,
 }
 
 impl Config {
@@ -139,7 +146,11 @@ impl Config {
             return Err(anyhow::anyhow!("No checks defined in config"));
         }
 
-        Ok(Config { hosts, checks })
+        Ok(Config { 
+            hosts, 
+            checks,
+            max_concurrent: toml_config.max_concurrent,
+        })
     }
 
     pub fn resolve_host(&self, name: &str) -> Option<String> {

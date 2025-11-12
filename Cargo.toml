@@ -18,6 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
+futures = "0.3"
 
 # SSH support
 ssh2 = "0.9"

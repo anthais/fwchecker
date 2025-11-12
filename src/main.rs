@@ -26,6 +26,10 @@ struct Args {
     /// Enable verbose mode
     #[arg(short, long)]
     verbose: bool,
+
+    /// Maximum number of concurrent tasks (overrides config file value, default: 1)
+    #[arg(long)]
+    max_concurrent: Option<usize>,
 }
 
 #[tokio::main]
@@ -61,8 +65,11 @@ async fn main() {
                  config.checks.len());
     }
 
+    // Use max_concurrent from CLI if provided, otherwise use config value
+    let max_concurrent = args.max_concurrent.unwrap_or(config.max_concurrent);
+    
     // Run checks
-    let mut runner = CheckRunner::new(config, args.verbose);
+    let mut runner = CheckRunner::new(config, args.verbose, max_concurrent);
     let results = runner.run_all_checks().await;
 
     // Print results
