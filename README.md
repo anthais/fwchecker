@@ -6,7 +6,27 @@
 
 > 🚀 Fast network connectivity checker with multi-host SSH support
 
-Check firewall rules and network connectivity from multiple sources to multiple targets using ping, telnet, and HTTP/HTTPS requests.
+---
+
+## Tại sao dự án này ra đời? (Tiếng Việt)
+
+Khi làm việc trong hệ thống nội bộ của một công ty, việc phát triển một dịch vụ mới cần kết nối tới các dịch vụ khác sẽ đòi hỏi bạn phải khai báo những rule firewall cần mở. Sau khi báo cho admin để mở firewall, bạn lại phải kiểm tra xem đã mở thành công chưa. Nếu dịch vụ cần kết nối đến hàng chục, hàng trăm server, việc SSH vào từng máy rồi gõ cả trăm lệnh thực sự là cơn ác mộng—có thể mất hàng giờ và dễ bỏ sót.
+
+Ở giai đoạn đầu của dự án, có thể chưa có ứng dụng nào chạy nên không thể kiểm tra firewall qua telnet được. Bạn thường phải SSH vào máy đích tạo dịch vụ "ảo" bằng `nc` (netcat). Sự lặp đi lặp lại tẻ nhạt, dễ sai sót này khiến tôi mệt mỏi, và đó là lý do **fwchecker** ra đời.
+
+Với **fwchecker**, bạn chỉ cần khai báo toàn bộ rule firewall trong một file cấu hình. Chỉ với một lệnh, mọi thứ tự động thực hiện song song. Cuộc sống tươi đẹp hơn hẳn! ✨
+
+---
+
+## Why did this project come to life?
+
+When I work in a company's internal system, developing a new service that needs to connect to other services requires declaring which firewall rules need to be opened. After notifying the system administrator to open the firewall rule, I need to verify whether it was successful. When a service needs to connect to tens or hundreds of other services, having to SSH into each server and run hundreds of commands becomes a nightmare—it can take hours, and I might miss checking some rules.
+
+In the early stages of creating a new service, there might not be any application running yet, making firewall checks via telnet unfeasible. This often means I have to SSH into the target machine to create a dummy service using `nc` (netcat). I got tired of this repetitive, error-prone process, and that's how **fwchecker** was born.
+
+With **fwchecker**, you can declare all firewall rules in a single configuration file and, with one command, all the jobs are done, in parallel. Life is so beautiful! ✨
+
+---
 
 ## ✨ Key Functionality
 
