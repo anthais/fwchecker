@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fs;
 
@@ -29,9 +29,53 @@ fn default_port() -> u16 {
     22
 }
 
+fn deserialize_commands<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct CommandsVisitor;
+
+    impl<'de> Visitor<'de> for CommandsVisitor {
+        type Value = Vec<String>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a string or an array of strings")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value
+                .lines()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect())
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            let mut vec = Vec::new();
+            while let Some(elem) = seq.next_element::<String>()? {
+                vec.push(elem);
+            }
+            Ok(vec)
+        }
+    }
+
+    deserializer.deserialize_any(CommandsVisitor)
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Check {
     pub source: String,
+    #[serde(deserialize_with = "deserialize_commands")]
     pub commands: Vec<String>,
 }
 

@@ -1,0 +1,19 @@
+# Test file to demonstrate string format for commands
+# This shows that commands can be a string with newline-separated commands
+
+[[host]]
+name = "local"
+type = "local"
+
+[[host]]
+name = "google-dns"
+type = "external"
+ip = "8.8.8.8"
+
+[[check]]
+source = "local"
+# String format - commands separated by newlines
+commands = """
+ping google-dns
+telnet google-dns 53
+"""
