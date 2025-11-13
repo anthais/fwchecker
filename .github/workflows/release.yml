@@ -17,6 +17,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Extracted version: ${VERSION}"
+      
+      - name: Update Cargo.toml version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
+          echo "Updated Cargo.toml version to ${VERSION}"
+          grep "^version" Cargo.toml
+      
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -58,11 +72,10 @@ jobs:
         run: |
           echo "deb=$(ls target/debian/*.deb)" >> $GITHUB_OUTPUT
           echo "rpm=$(ls target/generate-rpm/*.rpm)" >> $GITHUB_OUTPUT
-          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Package Windows binary
         run: |
-          version=${{ steps.packages.outputs.version }}
+          version="${{ steps.version.outputs.version }}"
           mkdir -p dist/windows
           cp target/x86_64-pc-windows-gnu/release/fwchecker.exe dist/windows/
           cd dist/windows
@@ -77,10 +90,10 @@ jobs:
             ${{ steps.packages.outputs.rpm }}
             target/debian/fwchecker.deb.sha256
             target/generate-rpm/fwchecker.rpm.sha256
-            dist/windows/fwchecker-${{ steps.packages.outputs.version }}-windows.zip
-            dist/windows/fwchecker-${{ steps.packages.outputs.version }}-windows.zip.sha256
+            dist/windows/fwchecker-${{ steps.version.outputs.version }}-windows.zip
+            dist/windows/fwchecker-${{ steps.version.outputs.version }}-windows.zip.sha256
           body: |
-            ## FWChecker ${{ steps.packages.outputs.version }}
+            ## FWChecker ${{ steps.version.outputs.version }}
             
             Fast, reliable network connectivity checker written in Rust.
             
@@ -88,14 +101,14 @@ jobs:
             
             **Debian/Ubuntu:**
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker_${{ steps.packages.outputs.version }}-1_amd64.deb
-            sudo apt install ./fwchecker_${{ steps.packages.outputs.version }}-1_amd64.deb
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker_${{ steps.version.outputs.version }}-1_amd64.deb
+            sudo apt install ./fwchecker_${{ steps.version.outputs.version }}-1_amd64.deb
             ```
             
             **CentOS/RHEL/Fedora:**
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker-${{ steps.packages.outputs.version }}-1.x86_64.rpm
-            sudo dnf install ./fwchecker-${{ steps.packages.outputs.version }}-1.x86_64.rpm
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker-${{ steps.version.outputs.version }}-1.x86_64.rpm
+            sudo dnf install ./fwchecker-${{ steps.version.outputs.version }}-1.x86_64.rpm
             ```
             
             ### ✨ Features
