@@ -59,13 +59,12 @@ wget https://github.com/anthais/fwchecker/releases/download/v${VERSION}/fwchecke
 sudo dnf install ./fwchecker-${VERSION}-1.x86_64.rpm
 ```
 
-**Windows (PowerShell):**
-```powershell
-$Version = "1.2.0"
-$Tag = "v$Version"
-Invoke-WebRequest -Uri "https://github.com/anthais/fwchecker/releases/download/$Tag/fwchecker-$Version-windows.zip" -OutFile "fwchecker-$Version-windows.zip"
-Expand-Archive -Path "fwchecker-$Version-windows.zip" -DestinationPath "."
-.\fwchecker.exe --help
+**Windows:**
+1. Download [fwchecker-${VERSION}-windows.zip](https://github.com/anthais/fwchecker/releases/download/v${VERSION}/fwchecker-${VERSION}-windows.zip)
+2. Extract the ZIP file
+3. Open Command Prompt in the extracted folder and run:
+```cmd
+fwchecker.exe --help
 ```
 
 **Verify Installation (Linux/macOS):**

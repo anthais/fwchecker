@@ -111,11 +111,12 @@ jobs:
             sudo dnf install ./fwchecker-${{ steps.version.outputs.version }}-1.x86_64.rpm
             ```
             
-            **Windows (PowerShell):**
-            ```powershell
-            Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker-${{ steps.version.outputs.version }}-windows.zip" -OutFile "fwchecker-${{ steps.version.outputs.version }}-windows.zip"
-            Expand-Archive -Path "fwchecker-${{ steps.version.outputs.version }}-windows.zip" -DestinationPath "."
-            .\fwchecker.exe --help
+            **Windows:**
+            1. Download [fwchecker-${{ steps.version.outputs.version }}-windows.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fwchecker-${{ steps.version.outputs.version }}-windows.zip)
+            2. Extract the ZIP file
+            3. Open Command Prompt in the extracted folder and run:
+            ```cmd
+            fwchecker.exe --help
             ```
             
             ### ✨ Features
