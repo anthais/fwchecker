@@ -8,7 +8,7 @@
 
 ---
 
-## Tại sao dự án này ra đời? (Tiếng Việt)
+## Tại sao dự án này ra đời?
 
 Khi làm việc trong hệ thống nội bộ của một công ty, việc phát triển một dịch vụ mới cần kết nối tới các dịch vụ khác sẽ đòi hỏi bạn phải khai báo những rule firewall cần mở. Sau khi báo cho admin để mở firewall, bạn lại phải kiểm tra xem đã mở thành công chưa. Nếu dịch vụ cần kết nối đến hàng chục, hàng trăm server, việc SSH vào từng máy rồi gõ cả trăm lệnh thực sự là cơn ác mộng—có thể mất hàng giờ và dễ bỏ sót.
 
